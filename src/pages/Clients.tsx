@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ClientCard, { Client } from "@/components/clients/ClientCard";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import AddClientDialog from "@/components/clients/AddClientDialog";
+import AddClientDialog, { clientSchema } from "@/components/clients/AddClientDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,52 +14,84 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialClients: Client[] = [
-  {
-    id: "1",
-    name: "Sarah Wilson",
-    email: "sarah@techstart.com",
-    phone: "+1 (555) 123-4567",
-    company: "TechStart Inc",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-    totalBilled: 45000,
-    activeProjects: 3,
-  },
-  {
-    id: "2",
-    name: "Michael Chen",
-    email: "michael@acme.com",
-    phone: "+1 (555) 987-6543",
-    company: "Acme Corp",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=michael",
-    totalBilled: 72000,
-    activeProjects: 2,
-  },
-  {
-    id: "3",
-    name: "Emma Thompson",
-    email: "emma@global.com",
-    phone: "+1 (555) 456-7890",
-    company: "Global Solutions",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emma",
-    totalBilled: 28000,
-    activeProjects: 1,
-  },
-];
+import { getClients, createClient, deleteClient } from "@/lib/api";
+import { toast } from "sonner";
+import { z } from "zod";
 
 const Clients = () => {
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getClients();
+      setClients(data);
+    } catch (error) {
+      console.error("Failed to load clients:", error);
+      toast.error("Failed to load clients");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateClient = async (data: z.infer<typeof clientSchema>) => {
+    try {
+      const newClient = await createClient({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company_id: data.company_id,
+        pin_number: data.pin_number || null,
+        vat_registered: data.vat_registered,
+        avatar: data.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.name}`,
+      });
+      setClients([...clients, newClient]);
+      toast.success("Client created successfully");
+    } catch (error) {
+      console.error("Failed to create client:", error);
+      toast.error("Failed to create client");
+    }
+  };
+
+  const handleDeleteClient = async () => {
+    if (!selectedClientId) return;
+
+    try {
+      await deleteClient(selectedClientId);
+      setClients(clients.filter((c) => c.id !== selectedClientId));
+      toast.success("Client deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete client:", error);
+      toast.error("Failed to delete client");
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setSelectedClientId(null);
+    }
+  };
+
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast.success("Client ID copied to clipboard");
+  };
+
   const filteredClients = clients.filter(
     (client) =>
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.company.toLowerCase().includes(searchQuery.toLowerCase()),
+      (client.company && client.company.name.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -80,31 +112,34 @@ const Clients = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredClients.map((client) => (
-          <ClientCard
-            key={client.id}
-            client={client}
-            onEdit={(id) => setIsAddDialogOpen(true)}
-            onDelete={(id) => {
-              setSelectedClientId(id);
-              setIsDeleteDialogOpen(true);
-            }}
-          />
+          <div key={client.id} className="relative">
+            <div className="absolute top-2 right-2 z-10">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCopyId(client.id)}
+                className="hover:bg-white/50"
+              >
+                <Copy className="h-4 w-4 mr-1" />
+                Copy ID
+              </Button>
+            </div>
+            <ClientCard
+              client={client}
+              onEdit={(id) => setIsAddDialogOpen(true)}
+              onDelete={(id) => {
+                setSelectedClientId(id);
+                setIsDeleteDialogOpen(true);
+              }}
+            />
+          </div>
         ))}
       </div>
 
       <AddClientDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        onSubmit={(data) => {
-          const newClient = {
-            id: `${Date.now()}`,
-            ...data,
-            avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${data.name}`,
-            totalBilled: 0,
-            activeProjects: 0,
-          };
-          setClients([...clients, newClient]);
-        }}
+        onSubmit={handleCreateClient}
       />
 
       <AlertDialog
@@ -122,13 +157,7 @@ const Clients = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (selectedClientId) {
-                  setClients(clients.filter((c) => c.id !== selectedClientId));
-                  setIsDeleteDialogOpen(false);
-                  setSelectedClientId(null);
-                }
-              }}
+              onClick={handleDeleteClient}
               className="bg-red-500 hover:bg-red-600"
             >
               Delete

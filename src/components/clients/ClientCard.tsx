@@ -15,10 +15,24 @@ export interface Client {
   name: string;
   email: string;
   phone: string;
-  company: string;
+  company?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    website: string;
+    address: string;
+    logo?: string;
+    pin_number: string;
+    vat_registered: boolean;
+    employee_count: number;
+    total_billed: number;
+  };
   avatar?: string;
-  totalBilled: number;
-  activeProjects: number;
+  pin_number?: string;
+  vat_registered: boolean;
+  total_billed: number;
+  active_projects: number;
 }
 
 interface ClientCardProps {
@@ -47,7 +61,7 @@ const ClientCard = ({
           </Avatar>
           <div>
             <h3 className="font-semibold text-lg">{client.name}</h3>
-            <p className="text-sm text-muted-foreground">{client.company}</p>
+            <p className="text-sm text-muted-foreground">{client.company?.name}</p>
           </div>
         </div>
         <DropdownMenu>
@@ -81,16 +95,30 @@ const ClientCard = ({
             <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
             {client.phone}
           </div>
+          {client.pin_number && (
+            <div className="flex items-center text-sm">
+              <span className="font-medium mr-2">PIN:</span>
+              {client.pin_number}
+            </div>
+          )}
+          <div className="flex items-center text-sm">
+            <span className="font-medium mr-2">VAT Status:</span>
+            {client.vat_registered ? (
+              <span className="text-green-600">Registered</span>
+            ) : (
+              <span className="text-gray-500">Not Registered</span>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t">
             <div>
               <p className="text-sm text-muted-foreground">Total Billed</p>
               <p className="text-lg font-semibold">
-                ${client.totalBilled.toLocaleString()}
+                ${client.total_billed.toLocaleString()}
               </p>
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Active Projects</p>
-              <p className="text-lg font-semibold">{client.activeProjects}</p>
+              <p className="text-lg font-semibold">{client.active_projects}</p>
             </div>
           </div>
         </div>

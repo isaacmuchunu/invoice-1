@@ -1,66 +1,53 @@
 import React from "react";
 import InvoiceCard from "./InvoiceCard";
 
-interface Invoice {
+interface GridInvoice {
   id: string;
   invoiceNumber: string;
   clientName: string;
   amount: number;
   dueDate: string;
-  status: "paid" | "pending" | "overdue";
+  status: "draft" | "sent" | "paid" | "overdue" | "cancelled";
 }
 
 interface InvoiceGridProps {
-  invoices?: Invoice[];
+  invoices: GridInvoice[];
   onEdit?: (id: string) => void;
   onDelete?: (id: string) => void;
   onDuplicate?: (id: string) => void;
 }
 
 const InvoiceGrid = ({
-  invoices = [
-    {
-      id: "1",
-      invoiceNumber: "INV-2024-001",
-      clientName: "Acme Corp",
-      amount: 1500.0,
-      dueDate: "2024-05-01",
-      status: "pending",
-    },
-    {
-      id: "2",
-      invoiceNumber: "INV-2024-002",
-      clientName: "TechStart Inc",
-      amount: 2500.0,
-      dueDate: "2024-04-15",
-      status: "paid",
-    },
-    {
-      id: "3",
-      invoiceNumber: "INV-2024-003",
-      clientName: "Global Solutions",
-      amount: 3500.0,
-      dueDate: "2024-03-30",
-      status: "overdue",
-    },
-  ],
+  invoices = [],
   onEdit = () => {},
   onDelete = () => {},
   onDuplicate = () => {},
 }: InvoiceGridProps) => {
-  return (
-    <div className="w-full min-h-screen bg-gray-50 p-8">
-      <div className="grid grid-cols-1 xl:grid-cols-3 lg:grid-cols-2 gap-8 place-items-center">
-        {invoices.map((invoice) => (
-          <InvoiceCard
-            key={invoice.id}
-            {...invoice}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onDuplicate={onDuplicate}
-          />
-        ))}
+  if (invoices.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] text-gray-500">
+        <p className="text-lg">No invoices found</p>
+        <p className="text-sm">Create a new invoice to get started</p>
       </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {invoices.map((invoice) => (
+        <InvoiceCard
+          key={invoice.id}
+          id={invoice.id}
+          invoiceNumber={invoice.invoiceNumber}
+          clientName={invoice.clientName}
+          amount={invoice.amount}
+          dueDate={invoice.dueDate}
+          status={invoice.status}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onDuplicate={onDuplicate}
+        />
+      ))}
     </div>
   );
 };

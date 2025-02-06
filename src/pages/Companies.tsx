@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import CompanyCard, { Company } from "@/components/companies/CompanyCard";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Copy } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import AddCompanyDialog from "@/components/companies/AddCompanyDialog";
+import AddCompanyDialog, { companySchema } from "@/components/companies/AddCompanyDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,52 +14,84 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-const initialCompanies: Company[] = [
-  {
-    id: "1",
-    name: "TechStart Inc",
-    email: "contact@techstart.com",
-    phone: "+1 (555) 123-4567",
-    website: "www.techstart.com",
-    address: "123 Innovation Ave, San Francisco, CA 94105",
-    employeeCount: 50,
-    totalBilled: 145000,
-  },
-  {
-    id: "2",
-    name: "Acme Corp",
-    email: "info@acme.com",
-    phone: "+1 (555) 987-6543",
-    website: "www.acme.com",
-    address: "456 Enterprise St, New York, NY 10001",
-    employeeCount: 200,
-    totalBilled: 372000,
-  },
-  {
-    id: "3",
-    name: "Global Solutions",
-    email: "contact@globalsolutions.com",
-    phone: "+1 (555) 456-7890",
-    website: "www.globalsolutions.com",
-    address: "789 Business Blvd, Chicago, IL 60601",
-    employeeCount: 100,
-    totalBilled: 228000,
-  },
-];
+import { getCompanies, createCompany, deleteCompany } from "@/lib/api";
+import { toast } from "sonner";
+import { z } from "zod";
 
 const Companies = () => {
-  const [companies, setCompanies] = useState<Company[]>(initialCompanies);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
-    null,
-  );
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    loadCompanies();
+  }, []);
+
+  const loadCompanies = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getCompanies();
+      setCompanies(data);
+    } catch (error) {
+      console.error("Failed to load companies:", error);
+      toast.error("Failed to load companies");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateCompany = async (data: z.infer<typeof companySchema>) => {
+    try {
+      const newCompany = await createCompany({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        website: data.website,
+        address: data.address,
+        pin_number: data.pin_number,
+        vat_registered: data.vat_registered,
+        employee_count: data.employee_count,
+        logo: data.logo || undefined,
+      });
+      setCompanies([...companies, newCompany]);
+      toast.success("Company created successfully");
+    } catch (error) {
+      console.error("Failed to create company:", error);
+      toast.error("Failed to create company");
+    }
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!selectedCompanyId) return;
+
+    try {
+      await deleteCompany(selectedCompanyId);
+      setCompanies(companies.filter((c) => c.id !== selectedCompanyId));
+      toast.success("Company deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete company:", error);
+      toast.error("Failed to delete company");
+    } finally {
+      setIsDeleteDialogOpen(false);
+      setSelectedCompanyId(null);
+    }
+  };
+
+  const handleCopyId = (id: string) => {
+    navigator.clipboard.writeText(id);
+    toast.success("Company ID copied to clipboard");
+  };
+
   const filteredCompanies = companies.filter((company) =>
-    company.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    company.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-8">
@@ -80,29 +112,34 @@ const Companies = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredCompanies.map((company) => (
-          <CompanyCard
-            key={company.id}
-            company={company}
-            onEdit={(id) => setIsAddDialogOpen(true)}
-            onDelete={(id) => {
-              setSelectedCompanyId(id);
-              setIsDeleteDialogOpen(true);
-            }}
-          />
+          <div key={company.id} className="relative">
+            <div className="absolute top-2 right-2 z-10">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleCopyId(company.id)}
+                className="hover:bg-white/50"
+              >
+                <Copy className="h-4 w-4 mr-1" />
+                Copy ID
+              </Button>
+            </div>
+            <CompanyCard
+              company={company}
+              onEdit={(id) => setIsAddDialogOpen(true)}
+              onDelete={(id) => {
+                setSelectedCompanyId(id);
+                setIsDeleteDialogOpen(true);
+              }}
+            />
+          </div>
         ))}
       </div>
 
       <AddCompanyDialog
         open={isAddDialogOpen}
         onOpenChange={setIsAddDialogOpen}
-        onSubmit={(data) => {
-          const newCompany = {
-            id: `${Date.now()}`,
-            ...data,
-            totalBilled: 0,
-          };
-          setCompanies([...companies, newCompany]);
-        }}
+        onSubmit={handleCreateCompany}
       />
 
       <AlertDialog
@@ -120,15 +157,7 @@ const Companies = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => {
-                if (selectedCompanyId) {
-                  setCompanies(
-                    companies.filter((c) => c.id !== selectedCompanyId),
-                  );
-                  setIsDeleteDialogOpen(false);
-                  setSelectedCompanyId(null);
-                }
-              }}
+              onClick={handleDeleteCompany}
               className="bg-red-500 hover:bg-red-600"
             >
               Delete

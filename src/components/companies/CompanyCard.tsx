@@ -25,8 +25,10 @@ export interface Company {
   phone: string;
   website: string;
   address: string;
-  employeeCount: number;
-  totalBilled: number;
+  employee_count: number;
+  total_billed: number;
+  pin_number: string;
+  vat_registered: boolean;
 }
 
 interface CompanyCardProps {
@@ -60,7 +62,7 @@ const CompanyCard = ({
           <div>
             <h3 className="font-semibold text-lg">{company.name}</h3>
             <p className="text-sm text-muted-foreground">
-              {company.employeeCount} employees
+              {company.employee_count} employees
             </p>
           </div>
         </div>
@@ -103,10 +105,22 @@ const CompanyCard = ({
             <MapPin className="mr-2 h-4 w-4 text-muted-foreground" />
             {company.address}
           </div>
+          <div className="flex items-center text-sm">
+            <span className="font-medium mr-2">PIN:</span>
+            {company.pin_number}
+          </div>
+          <div className="flex items-center text-sm">
+            <span className="font-medium mr-2">VAT Status:</span>
+            {company.vat_registered ? (
+              <span className="text-green-600">Registered</span>
+            ) : (
+              <span className="text-gray-500">Not Registered</span>
+            )}
+          </div>
           <div className="mt-4 pt-4 border-t">
             <p className="text-sm text-muted-foreground">Total Billed</p>
             <p className="text-lg font-semibold">
-              ${company.totalBilled.toLocaleString()}
+              ${company.total_billed.toLocaleString()}
             </p>
           </div>
         </div>
